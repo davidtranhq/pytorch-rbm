@@ -1,64 +1,54 @@
-import numpy as np
 import torch
 import torch.utils.data
-import torchvision.datasets
-import torchvision.transforms
+from sklearn.model_selection import KFold
 
+from load_data import load_binary_mnist
 from rbm import RBM
 
 # Configuration
 BATCH_SIZE = 64
 VISIBLE_UNITS = 784 # 28 x 28 images
 HIDDEN_UNITS = 128
-CD_K = 1
-PATIENCE = 3
+CD_K = 2
+LEARNING_RATE = 1e-3
+MOMENTUM_COEFF = 0.9
+EPOCHS = 100
 
-DATA_FOLDER = 'data'
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 # Load MNIST data
 print('Loading dataset...')
 
-train_dataset = torchvision.datasets.MNIST(
-    root=DATA_FOLDER,
-    train=True,
-    transform=torchvision.transforms.ToTensor(),
-    download=True
-)
+train_dataset, test_dataset = load_binary_mnist()
 
-# split into training and validation data
-train_subset, validation_subset = torch.utils.data.random_split(
-    train_dataset,
-    [50000, 10000],
-    generator=torch.Generator().manual_seed(42) # fix generator for reproducible results
-)
-
-train_loader = torch.utils.data.DataLoader(train_subset, shuffle=True, batch_size=BATCH_SIZE)
-validation_loader = torch.utils.data.DataLoader(validation_subset, shuffle=True, batch_size=BATCH_SIZE)
-test_dataset = torchvision.datasets.MNIST(
-    root=DATA_FOLDER,
-    train=False,
-    transform=torchvision.transforms.ToTensor(),
-    download=True
-)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
 # Train the RBM
 print('Training the RBM...')
-rbm = RBM(VISIBLE_UNITS, HIDDEN_UNITS, CD_K, device=DEVICE)
 
-train_history, validate_history = rbm.train(PATIENCE, train_loader, validation_loader)
+rbm = RBM(VISIBLE_UNITS, HIDDEN_UNITS, CD_K, weight_decay=0, device=DEVICE)
+
+train_history, test_history = [], []
+for epoch in range(EPOCHS):
+    print(f'Starting epoch {epoch}...')
+    train_err = rbm.train(train_loader, epochs=1)
+    test_err = rbm.test(test_loader)
+    train_history += train_err
+    test_history.append(test_err)
+    print(f'Finished epoch {epoch}.'
+        + f' Avg error (train|test): {train_err[0]:.4f}|{test_err:.4f}')
 
 # Save the model parameters
 print('Saving model parameters...')
-rbm.save('rbm_params.pt')
+rbm.save('MNIST_params.pt')
 
 # Save the error history
 print('Saving error history...')
 with open('MNIST_loss.csv', 'w') as f:
     epoch = 0
-    f.write('Epoch,Average Training Error,Average Validation Error')
-    for train, validate in zip(train_history, validate_history):
+    f.write('Epoch,Average Training Error,Average Validation Error\n')
+    for train, validate in zip(train_history, test_history):
         f.write(f'{epoch},{train},{validate}\n')
 
 print('Done.')

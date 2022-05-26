@@ -23,169 +23,93 @@ class RBM:
         self.device = device
 
         # initialize parameters
-        self.weights = torch.randn(num_visible, num_hidden, device=device) * 0.1
-        self.visible_biases = torch.ones(num_visible, device=device) * 0.5
-        self.hidden_biases = torch.ones(num_hidden, device=device) * 0.5
+        self.reset_parameters()
 
         # initialize tensors to 0 that will store the momenta of parameters
-        self.weights_momentum = torch.zeros(num_visible, num_hidden, device=device)
-        self.visible_biases_momentum = torch.zeros(num_visible, device=device)
-        self.hidden_biases_momentum=torch.zeros(num_hidden, device=device)
+        self.weight_momenta = torch.zeros(num_visible, num_hidden, device=device)
+        self.visible_bias_momenta = torch.zeros(num_visible, device=device)
+        self.hidden_bias_momenta = torch.zeros(num_hidden, device=device)
     
-    def infer_hidden(self, visible_probabilities):
-        """Calculate the distribution of the hidden units, conditioned on the visible units.
+    def train(self, train_loader, epochs=None, print_progress=False):
+        """Train the RBM with contrastive divergence, momentum, and weight decay for the specified
+        amount of epochs.
 
         Args:
-            visible_probabilities (torch.Tensor): A tensor of size (batch_size, num_visible),
-            where the ith row is the distribution of the visible units for the ith example.
+            train_loader (torch.DataLoader): The DataLoader from which to load the training data.
+
+            print_progress (bool): Flag indicating whether or not to print epoch start and epoch
+            error after each epoch.
 
         Returns:
-            torch.Tensor: A tensor of size (batch_size, num_hidden), where the ith row is
-            the distribution of the hidden units for the ith batch.
+            list[float]: The history of training errors.
         """
-        hidden_activations = self.hidden_biases + torch.matmul(visible_probabilities, self.weights)
-        hidden_probabilities = torch.sigmoid(hidden_activations)
-        return hidden_probabilities
-
-    def infer_visible(self, hidden_probabilities):
-        """Calculate the distribution of the visible units, conditioned on the hidden units.
-
-        Args:
-            hidden_probabilities (torch.Tensor): A tensor of size (batch_size, num_hidden),
-            where the ith row is the distribution of the hidden units for the ith example.
-
-        Returns:
-            torch.Tensor: A tensor of size (batch_size, num_visible), where the ith row is the
-            distribution of the hidden units for the ith batch.
-        """
-        visible_activations = self.visible_biases + torch.matmul(hidden_probabilities, self.weights.t())
-        visible_probabilities = torch.sigmoid(visible_activations)
-        return visible_probabilities
-    
-    def contrastive_divergence(self, input_data):
-        """Perform one CD-k step using the input. Implements momentum and weight decay.
-
-        Args:
-            input (torch.Tensor): A design matrix of size (batch_size, num_visible).
-
-        Returns:
-            torch.Tensor: The scalar error, computed as the total squared L2 norm between
-            the input and the reconstruction.
-        """
-        batch_size = input_data.size(0)
-        # Calculate the postive phase
-        positive_hidden_probabilities = self.infer_hidden(input_data) # dim (batch_size, num_hidden)
-        positive_hidden_activations = self._sample_bernoulli(positive_hidden_probabilities)
-        positive_weights_gradient = torch.matmul(
-            input_data.t(),
-            positive_hidden_activations
-        ) / batch_size
-
-        # Calculate the negative phase
-        # k steps of Gibbs sampling
-        hidden_activations = positive_hidden_activations
-        for step in range(self.gibbs_steps):
-            # inferring the visible units with the activations (instead of the probabilities)
-            # has a regularizing effect
-            visible_probabilities = self.infer_visible(hidden_activations)
-            hidden_probabilities = self.infer_hidden(visible_probabilities)
-            hidden_activations = self._sample_bernoulli(hidden_probabilities)
-
-        negative_visible_probabilities = visible_probabilities
-        negative_hidden_probabilities = hidden_probabilities
-        negative_weights_gradient = torch.matmul(
-            negative_visible_probabilities.t(),
-            negative_hidden_probabilities
-        ) / batch_size
-
-        # Calculate momentum
-        self.weights_momentum *= self.momentum_coefficient
-        self.weights_momentum += (
-            self.learning_rate * (positive_weights_gradient - negative_weights_gradient)
-        )
-
-        self.visible_biases_momentum *= self.momentum_coefficient
-        self.visible_biases_momentum += self.learning_rate * torch.sum(
-            input_data - negative_visible_probabilities,
-            dim=0
-        )
-
-        self.hidden_biases_momentum *= self.momentum_coefficient
-        self.hidden_biases_momentum += self.learning_rate * torch.sum(
-            positive_hidden_probabilities - negative_hidden_probabilities,
-            dim=0
-        )
-
-        # Update parameters
-        self.weights += self.weights_momentum
-        self.visible_biases += self.visible_biases_momentum
-        self.hidden_biases += self.hidden_biases_momentum
-
-        # Apply weight decay
-        self.weights -= self.weights * self.weight_decay
-
-        # Compute reconstruction error
-        error = torch.sum((input_data - negative_visible_probabilities) ** 2)
-
-        return error
-        
-    def train(self, patience, train_loader, validation_loader):
-        """Train the RBM with contrastive divergence, momentum, weight decay, and early stopping.
-
-        Args:
-            patience (int): Maximum number of epochs to run without improvement before stopping
-            train_loader (torch.DataLoader): DataLoader for the training set
-            validation_loader (torch.DataLoader): DataLoader for the validation set
-
-        Returns:
-            tuple[list[float], list[float]]: The history of training and validation errors.
-        """
-        best_weights = self.weights.clone()
-        best_visible_biases = self.visible_biases.clone()
-        best_hidden_biases = self.hidden_biases.clone()
-        best_validation_error = None
         epoch = 0
-        epochs_since_improvement = 0
-        validation_error = 0
-        training_error_history = []
-        validation_error_history = []
-        while (epochs_since_improvement < patience):
-            print(f'Starting epoch {epoch}...')
+        error_history = []
+        while (epoch < epochs):
+            if print_progress:
+                print(f'Starting epoch {epoch}...')
             # train
-            training_error = 0
-            for train_batch, _ in train_loader:
+            total_error = 0
+            num_examples = 0
+            for batch, _ in train_loader:
                 # flatten input data
-                train_batch = self._flatten_input_batch(train_batch)
-                training_error += self.contrastive_divergence(train_batch)
-            average_training_error = training_error / len(train_loader.dataset)
-            training_error_history.append(average_training_error.item())
-            # validate
-            for validate_batch, _ in validation_loader:
-                validate_batch = self._flatten_input_batch(validate_batch)
-                hidden = self.infer_hidden(validate_batch)
-                visible = self.infer_visible(hidden)
-                # squared L2 norm
-                validation_error += torch.sum((validate_batch - visible) ** 2)
-            if (best_validation_error == None or validation_error < best_validation_error):
-                # the model improved
-                best_weights = self.weights.clone()
-                best_visible_biases = self.visible_biases.clone()
-                best_hidden_biases = self.hidden_biases.clone()
-                best_validation_error = validation_error
-                epochs_since_improvement = 0
-            else:
-                # the model did not improve
-                epochs_since_improvement += 1
-            average_validation_error = validation_error / len(validation_loader.dataset)
-            validation_error_history.append(average_validation_error.item())
-            print(f'Finished epoch. Average Train|Validate Error: '
-                f'{average_training_error:.2f}|{average_validation_error:.2f}')
+                batch = self._flatten_input_batch(batch)
+                total_error += self._contrastive_divergence(batch)
+                num_examples += batch.size(0)
+            avg_error = total_error / num_examples
+            # convert from tensor to single number
+            error_history.append(avg_error.item())
+            if print_progress:
+                print(f'Finished epoch {epoch}. Avg error: {avg_error:.4f}')
             epoch += 1
-            validation_error = 0
-        self.weights = best_weights
-        self.visible_biases = best_visible_biases
-        self.hidden_biases = best_hidden_biases
-        return (training_error_history, validation_error_history)
+        return error_history
+
+    def test(self, test_loader):
+        """Test the RBM on the given test data.
+
+        Args:
+            test_loader (torch.DataLoader): The DataLoader from which to load the test data.
+
+        Returns:
+            float: The average training error on the entire test set.
+        """
+        total_error = 0
+        num_examples = 0
+        for batch, _ in test_loader:
+            batch = self._flatten_input_batch(batch)
+            hidden_values = self.sample_hidden(batch)
+            visible_values = self.sample_visible(hidden_values)
+            total_error += torch.sum(torch.abs(visible_values - batch))
+            num_examples += batch.size(0)
+        return total_error / num_examples
+        
+    
+    def reset_parameters(self):
+        self.weights = torch.randn(self.num_visible, self.num_hidden, device=self.device) * 0.1
+        self.visible_biases = torch.ones(self.num_visible, device=self.device) * 0.5
+        self.hidden_biases = torch.ones(self.num_hidden, device=self.device) * 0.5
+
+    def generate_sample(self, mixing_time=10, visible_values=None):
+        """Generate a sample of the visible and hidden units using Gibbs sampling.
+
+        Args:
+            mixing_time (int, optional): The number of Gibbs steps to take before return a sample.
+            Defaults to 10.
+
+            visible_values (torch.Tensor): Visible unit values with which to initialize
+            the Markov chain.
+
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]: A tuple of tensors of size (visible_units, hidden_units) 
+            containing the values of the visible and hidden units.
+        """
+        if visible_values == None:
+            visible_values = torch.randn(self.num_visible, device=self.device)
+        hidden_values = None
+        for _ in range(mixing_time):
+            hidden_values = self.sample_hidden(visible_values)
+            visible_values = self.sample_visible(hidden_values)
+        return (visible_values, hidden_values)
     
     def save(self, file_path):
         """Save the model's current parameters to file_path.
@@ -210,22 +134,94 @@ class RBM:
         self.visible_biases = parameters['visible_biases']
         self.hidden_biases = parameters['hidden_biases']
 
-    def generate_sample(self, mixing_time=10):
-        """Generate a sample from the visible units of the model using Gibbs sampling.
+    def _contrastive_divergence(self, input_data):
+        """Perform one CD-k step using the input. Implements momentum and weight decay.
 
         Args:
-            mixing_time (int, optional): The number of Gibbs steps to take before sampling.
-            Defaults to 10.
+            input (torch.Tensor): A design matrix of size (batch_size, num_visible).
 
         Returns:
-            torch.Tensor: A tensor of size (visible_units) containing the probabilities
-            of the visible units.
+            torch.Tensor: The scalar error, computed as the total squared L2 norm between
+            the input and the reconstruction.
         """
-        visible_probabilities = torch.randn(self.num_visible, device=self.device)
-        for t in range(mixing_time):
-            hidden_probabilities = self.infer_hidden(visible_probabilities)
-            visible_probabilities = self.infer_visible(hidden_probabilities)
-        return visible_probabilities
+        batch_size = input_data.size(0)
+
+        # Calculate the postive phase gradients
+        hidden_values = self.sample_hidden(input_data)
+        weight_grads = torch.matmul(input_data.t(), hidden_values)
+        visible_bias_grads = input_data
+        hidden_bias_grads = hidden_values
+
+        # Sample from the model for the negative phase
+        visible_values, hidden_values = self.generate_sample(self.gibbs_steps, input_data)
+
+        # Calculate the negative phase gradients
+        weight_grads -= torch.matmul(visible_values.t(), hidden_values)
+        visible_bias_grads -= visible_values
+        hidden_bias_grads -= hidden_values
+
+        # Average across the batch
+        weight_grads /= batch_size
+        visible_bias_grads /= batch_size
+        hidden_bias_grads /= batch_size
+
+        # Calculate parameter momenta
+        self.weight_momenta *= self.momentum_coefficient
+        self.weight_momenta += self.learning_rate * weight_grads
+
+        self.visible_bias_momenta *= self.momentum_coefficient
+        self.visible_bias_momenta += self.learning_rate * torch.sum(visible_bias_grads, dim=0)
+
+        self.hidden_bias_momenta *= self.momentum_coefficient
+        self.hidden_bias_momenta += self.learning_rate * torch.sum(hidden_bias_grads, dim=0)
+
+        # Update parameters
+        self.weights += self.weight_momenta
+        self.visible_biases += self.visible_bias_momenta
+        self.hidden_biases += self.hidden_bias_momenta
+
+        # Apply weight decay
+        self.weights -= self.weights * self.weight_decay
+
+        # Compute reconstruction error (L1 norm since values are binary)
+        error = torch.sum(torch.abs(input_data - visible_values))
+
+        return error
+
+
+    def sample_hidden(self, visible_values):
+        """Generate a sample from the hidden units, conditioned on the visible units.
+
+        Args:
+            visible_values (torch.Tensor): A tensor of size (batch_size, num_visible),
+            where the i-th row is the state of the visible units for the i-th example.
+
+        Returns:
+            torch.Tensor: A tensor of size (batch_size, num_hidden), where the i-th row is the
+            state of the hidden units for the i-th example.
+        """
+        hidden_probabilities = torch.sigmoid(
+            self.hidden_biases 
+            + torch.matmul(visible_values, self.weights)
+        )
+        return torch.bernoulli(hidden_probabilities)
+
+    def sample_visible(self, hidden_values):
+        """Generate a sample from the visible units, conditioned on the hidden units.
+
+        Args:
+            hidden_values (torch.Tensor): A tensor of size (batch_size, num_hidden),
+            where the i-th row is the state of the hidden units for the i-th example.
+
+        Returns:
+            torch.Tensor: A tensor of size (batch_size, num_visible), where the ith row is the
+            state of the visible units for the i-th example.
+        """
+        visible_probabilities = torch.sigmoid(
+            self.visible_biases
+            + torch.matmul(hidden_values, self.weights.t())
+        )
+        return torch.bernoulli(visible_probabilities)
 
     def _flatten_input_batch(self, input_batch):
         """Flatten a batch of inputs into a design matrix.
@@ -238,21 +234,6 @@ class RBM:
             torch.Tensor: A (batch_size, num_visible) design matrix.
         """
         return input_batch.reshape(input_batch.size(0), self.num_visible).to(self.device)
-
-    def _sample_bernoulli(self, distribution):
-        """Sample from a Bernoulli distribution.
-
-        Args:
-            distribution (torch.Tensor): A Bernoulli distribution, where distribution_i indicates
-            the probability of the ith variable being 1.
-        
-        Returns:
-            torch.Tensor: A sample from the distribution as a binary tensor of floats.
-        """
-        num_vars = distribution.size()
-        random_nums = torch.rand(num_vars).to(self.device)
-        bernoulli_sample = (random_nums <= distribution).float()
-        return bernoulli_sample
         
 
          
