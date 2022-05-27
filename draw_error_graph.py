@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 
-csv_file_name = 'MNIST_loss.csv'
+csv_file_name = 'results/MNIST_loss.csv'
 loss = pd.read_csv(csv_file_name)
 train_error = loss['Average Training Error']
 validate_error = loss['Average Validation Error']

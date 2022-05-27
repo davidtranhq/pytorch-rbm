@@ -10,7 +10,7 @@ class RBM:
         num_hidden,
         gibbs_steps,
         learning_rate=1e-3,
-        momentum_coefficient=0.9,
+        momentum_coefficient=0.5,
         weight_decay=1e-4,
         device=None
     ):
@@ -184,7 +184,8 @@ class RBM:
         self.weights -= self.weights * self.weight_decay
 
         # Compute reconstruction error (L1 norm since values are binary)
-        error = torch.sum(torch.abs(input_data - visible_values))
+        reconstruction = self.sample_visible(self.sample_hidden(input_data))
+        error = torch.sum(torch.abs(input_data - reconstruction))
 
         return error
 
