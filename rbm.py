@@ -197,8 +197,8 @@ class RBM:
 
     def infer_visible(self, hidden_values):
         visible_probabilities = torch.sigmoid(
-            self.hidden_biases 
-            + torch.matmul(hidden_values, self.weights)
+            self.visible_biases 
+            + torch.matmul(hidden_values, self.weights.t())
         )
         return visible_probabilities
 
