@@ -9,10 +9,11 @@ from rbm import RBM
 BATCH_SIZE = 64
 VISIBLE_UNITS = 784 # 28 x 28 images
 HIDDEN_UNITS = 128
-CD_K = 2
+CD_K = 1
 LEARNING_RATE = 1e-3
-MOMENTUM_COEFF = 0.9
-EPOCHS = 100
+MOMENTUM_COEFFICIENT = 0.9
+WEIGHT_DECAY = 1e-4
+EPOCHS = 20
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -27,7 +28,14 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)
 # Train the RBM
 print('Training the RBM...')
 
-rbm = RBM(VISIBLE_UNITS, HIDDEN_UNITS, CD_K, weight_decay=0, device=DEVICE)
+rbm = RBM(
+    VISIBLE_UNITS,
+    HIDDEN_UNITS,
+    CD_K,
+    weight_decay=WEIGHT_DECAY,
+    momentum_coefficient=MOMENTUM_COEFFICIENT,
+    device=DEVICE
+)
 
 train_history, test_history = [], []
 for epoch in range(EPOCHS):

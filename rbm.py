@@ -10,7 +10,7 @@ class RBM:
         num_hidden,
         gibbs_steps,
         learning_rate=1e-3,
-        momentum_coefficient=0.5,
+        momentum_coefficient=0.9,
         weight_decay=1e-4,
         device=None
     ):

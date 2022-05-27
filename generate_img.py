@@ -13,7 +13,7 @@ DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 rbm = RBM(VISIBLE_UNITS, HIDDEN_UNITS, CD_K, device=DEVICE)
 
 print('Loading model...')
-rbm.load('MNIST_params.pt')
+rbm.load('models/MNIST_params.pt')
 
 fig = plt.figure(figsize=(8,8))
 columns = 10
