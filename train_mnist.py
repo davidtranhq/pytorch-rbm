@@ -8,11 +8,11 @@ from rbm import RBM
 # Configuration
 BATCH_SIZE = 64
 VISIBLE_UNITS = 784 # 28 x 28 images
-HIDDEN_UNITS = 128
+HIDDEN_UNITS = 144
 CD_K = 2
 LEARNING_RATE = 1e-3
 MOMENTUM_COEFFICIENT = 0.5
-WEIGHT_DECAY = 1e-3
+WEIGHT_DECAY = 1e-2
 EPOCHS = 100
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
