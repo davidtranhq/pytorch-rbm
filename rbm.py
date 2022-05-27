@@ -77,8 +77,7 @@ class RBM:
         num_examples = 0
         for batch, _ in test_loader:
             batch = self._flatten_input_batch(batch)
-            hidden_values = self.sample_hidden(batch)
-            visible_values = self.sample_visible(hidden_values)
+            visible_values = self.sample_visible(self.infer_hidden(batch))
             total_error += torch.sum(torch.abs(visible_values - batch))
             num_examples += batch.size(0)
         return total_error / num_examples
@@ -108,8 +107,8 @@ class RBM:
         hidden_values = None
         for _ in range(mixing_time):
             hidden_values = self.sample_hidden(visible_values)
-            visible_values = self.sample_visible(hidden_values)
-        return (visible_values, hidden_values)
+            visible_values = self.infer_visible(hidden_values)
+        return (torch.bernoulli(visible_values), hidden_values)
     
     def save(self, file_path):
         """Save the model's current parameters to file_path.
@@ -184,11 +183,24 @@ class RBM:
         self.weights -= self.weights * self.weight_decay
 
         # Compute reconstruction error (L1 norm since values are binary)
-        reconstruction = self.sample_visible(self.sample_hidden(input_data))
+        reconstruction = self.sample_visible(self.infer_hidden(input_data))
         error = torch.sum(torch.abs(input_data - reconstruction))
 
         return error
 
+    def infer_hidden(self, visible_values):
+        hidden_probabilities = torch.sigmoid(
+            self.hidden_biases 
+            + torch.matmul(visible_values, self.weights)
+        )
+        return hidden_probabilities
+
+    def infer_visible(self, hidden_values):
+        visible_probabilities = torch.sigmoid(
+            self.hidden_biases 
+            + torch.matmul(hidden_values, self.weights)
+        )
+        return visible_probabilities
 
     def sample_hidden(self, visible_values):
         """Generate a sample from the hidden units, conditioned on the visible units.
@@ -201,11 +213,7 @@ class RBM:
             torch.Tensor: A tensor of size (batch_size, num_hidden), where the i-th row is the
             state of the hidden units for the i-th example.
         """
-        hidden_probabilities = torch.sigmoid(
-            self.hidden_biases 
-            + torch.matmul(visible_values, self.weights)
-        )
-        return torch.bernoulli(hidden_probabilities)
+        return torch.bernoulli(self.infer_hidden(visible_values))
 
     def sample_visible(self, hidden_values):
         """Generate a sample from the visible units, conditioned on the hidden units.
@@ -218,11 +226,7 @@ class RBM:
             torch.Tensor: A tensor of size (batch_size, num_visible), where the ith row is the
             state of the visible units for the i-th example.
         """
-        visible_probabilities = torch.sigmoid(
-            self.visible_biases
-            + torch.matmul(hidden_values, self.weights.t())
-        )
-        return torch.bernoulli(visible_probabilities)
+        return torch.bernoulli(self.infer_visible(hidden_values))
 
     def _flatten_input_batch(self, input_batch):
         """Flatten a batch of inputs into a design matrix.
