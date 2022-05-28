@@ -8,7 +8,13 @@ from rbm import RBM
 
 # Get name to be used for the model from CLI
 parser = argparse.ArgumentParser()
-parser.add_argument('model_name', nargs='?', default='model')
+parser.add_argument('model_name', nargs='?', default='model', help='the name of the model')
+parser.add_argument('--hidden', type=int, default=128, help='number of hidden units')
+parser.add_argument('--cdk', type=int, default=2, help='number of CD iterations')
+parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
+parser.add_argument('--momentum', type=float, default=0.5, help='momentum coefficient')
+parser.add_argument('--decay', type=float, default=1e-3, help='weight decay')
+parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
 args = parser.parse_args()
 
 MODEL_NAME = args.model_name
@@ -16,12 +22,12 @@ MODEL_NAME = args.model_name
 # Configuration
 BATCH_SIZE = 64
 VISIBLE_UNITS = 784 # 28 x 28 images
-HIDDEN_UNITS = 128
-CD_K = 2
-LEARNING_RATE = 1e-3
-MOMENTUM_COEFFICIENT = 0.5
-WEIGHT_DECAY = 1e-3
-EPOCHS = 3
+HIDDEN_UNITS = args.hidden
+CD_K = args.cdk
+LEARNING_RATE = args.lr
+MOMENTUM_COEFFICIENT = args.momentum
+WEIGHT_DECAY = args.decay
+EPOCHS = args.epochs
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
