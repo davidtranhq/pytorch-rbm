@@ -31,7 +31,19 @@ EPOCHS = args.epochs
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-print(f'Using device: {torch.cuda.get_device_name(DEVICE)}')
+hyperparams = f'''
+Using {torch.cuda.get_device_name(DEVICE)}
+BATCH_SIZE = {BATCH_SIZE}
+VISIBLE_UNITS = {VISIBLE_UNITS}
+HIDDEN_UNITS = {HIDDEN_UNITS}
+CD_K = {CD_K}
+LEARNING_RATE = {LEARNING_RATE}
+MOMENTUM_COEFFICIENT = {MOMENTUM_COEFFICIENT}
+WEIGHT_DECAY = {WEIGHT_DECAY}
+EPOCHS = {EPOCHS}
+'''
+
+print(hyperparams)
 
 # Load MNIST data
 print('Loading dataset...')
@@ -78,20 +90,8 @@ rbm.save(param_file)
 # Save the hyperparameters
 hyperparam_file = f'models/{MODEL_NAME}_hyperparams.txt'
 print(f'Saving hyperparameters to {hyperparam_file}...')
-lines = [
-    f'Trained on {torch.cuda.get_device_name(DEVICE)}',
-    f'BATCH_SIZE = {BATCH_SIZE}',
-    f'VISIBLE_UNITS = {VISIBLE_UNITS}',
-    f'HIDDEN_UNITS = {HIDDEN_UNITS}',
-    f'CD_K = {CD_K}',
-    f'LEARNING_RATE = {LEARNING_RATE}',
-    f'MOMENTUM_COEFFICIENT = {MOMENTUM_COEFFICIENT}',
-    f'WEIGHT_DECAY = {WEIGHT_DECAY}',
-    f'EPOCHS = {EPOCHS}',
-]
 with open(hyperparam_file, 'w') as f:
-    for line in lines:
-        f.write(f'{line}\n')
+    f.write(hyperparams)
 
 # Save the error history
 perform_file = f'models/{MODEL_NAME}_loss.csv'
