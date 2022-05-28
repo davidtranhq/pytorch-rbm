@@ -61,7 +61,7 @@ validate_loader = torch.utils.data.DataLoader(validate_dataset, batch_size=BATCH
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
 # Train the RBM
-print('Training the RBM...')
+print(f'Training \'{MODEL_NAME}\'')
 
 rbm = RBM(
     VISIBLE_UNITS,
