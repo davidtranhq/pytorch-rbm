@@ -1,9 +1,17 @@
 import torch
 import torch.utils.data
+import argparse
 from sklearn.model_selection import KFold
 
 from load_data import load_binary_mnist
 from rbm import RBM
+
+# Get name to be used for the model from CLI
+parser = argparse.ArgumentParser()
+parser.add_argument('model_name', nargs='?', default='model')
+args = parser.parse_args()
+
+MODEL_NAME = args.model_name
 
 # Configuration
 BATCH_SIZE = 64
@@ -13,16 +21,25 @@ CD_K = 2
 LEARNING_RATE = 1e-3
 MOMENTUM_COEFFICIENT = 0.5
 WEIGHT_DECAY = 1e-3
-EPOCHS = 100
+EPOCHS = 3
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
+print(f'Using device: {torch.cuda.get_device_name(DEVICE)}')
 
 # Load MNIST data
 print('Loading dataset...')
 
 train_dataset, test_dataset = load_binary_mnist()
 
+train_dataset, validate_dataset = torch.utils.data.random_split(
+    train_dataset,
+    [50000, 10000],
+    generator=torch.Generator().manual_seed(74)
+)
+
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=BATCH_SIZE)
+validate_loader = torch.utils.data.DataLoader(validate_dataset, batch_size=BATCH_SIZE)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=BATCH_SIZE)
 
 # Train the RBM
@@ -37,26 +54,47 @@ rbm = RBM(
     device=DEVICE
 )
 
-train_history, test_history = [], []
+train_history, validate_history = [], []
 for epoch in range(EPOCHS):
     print(f'Starting epoch {epoch}...')
     train_err = rbm.train(train_loader, epochs=1)
-    test_err = rbm.test(test_loader)
+    validate_err = rbm.test(validate_loader)
     train_history += train_err
-    test_history.append(test_err)
+    validate_history.append(validate_err)
     print(f'Finished epoch {epoch}.'
-        + f' Avg error (train|test): {train_err[0]:.4f}|{test_err:.4f}')
+        + f' Avg error (train|validate): {train_err[0]:.4f}|{validate_err:.4f}')
 
 # Save the model parameters
-print('Saving model parameters...')
-rbm.save('MNIST_params.pt')
+param_file = f'models/{MODEL_NAME}_params.pt'
+print(f'Saving model parameters to {param_file}...')
+rbm.save(param_file)
+
+# Save the hyperparameters
+hyperparam_file = f'models/{MODEL_NAME}_hyperparams.txt'
+print(f'Saving hyperparameters to {hyperparam_file}...')
+lines = [
+    f'Trained on {torch.cuda.get_device_name(DEVICE)}',
+    f'BATCH_SIZE = {BATCH_SIZE}',
+    f'VISIBLE_UNITS = {VISIBLE_UNITS}',
+    f'HIDDEN_UNITS = {HIDDEN_UNITS}',
+    f'CD_K = {CD_K}',
+    f'LEARNING_RATE = {LEARNING_RATE}',
+    f'MOMENTUM_COEFFICIENT = {MOMENTUM_COEFFICIENT}',
+    f'WEIGHT_DECAY = {WEIGHT_DECAY}',
+    f'EPOCHS = {EPOCHS}',
+]
+with open(hyperparam_file, 'w') as f:
+    for line in lines:
+        f.write(f'{line}\n')
 
 # Save the error history
-print('Saving error history...')
-with open('MNIST_loss.csv', 'w') as f:
+perform_file = f'models/{MODEL_NAME}_loss.csv'
+print(f'Saving model performance to {perform_file}...')
+with open(perform_file, 'w') as f:
     epoch = 0
     f.write('Epoch,Average Training Error,Average Validation Error\n')
-    for train, validate in zip(train_history, test_history):
+    for train, validate in zip(train_history, validate_history):
         f.write(f'{epoch},{train},{validate}\n')
+        epoch += 1
 
 print('Done.')

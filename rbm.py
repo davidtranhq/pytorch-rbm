@@ -129,7 +129,7 @@ class RBM:
         Args:
             file_path (string): The file path to load the parameters from.
         """
-        parameters = torch.load(file_path)
+        parameters = torch.load(file_path, map_location=self.device)
         self.weights = parameters['weights']
         self.visible_biases = parameters['visible_biases']
         self.hidden_biases = parameters['hidden_biases']
