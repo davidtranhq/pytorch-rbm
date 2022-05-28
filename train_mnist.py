@@ -13,7 +13,7 @@ parser.add_argument('--hidden', type=int, default=128, help='number of hidden un
 parser.add_argument('--cdk', type=int, default=2, help='number of CD iterations')
 parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
 parser.add_argument('--momentum', type=float, default=0.5, help='momentum coefficient')
-parser.add_argument('--decay', type=float, default=1e-3, help='weight decay')
+parser.add_argument('--decay', type=float, default=1e-4, help='weight decay')
 parser.add_argument('--epochs', type=int, default=50, help='number of training epochs')
 args = parser.parse_args()
 
