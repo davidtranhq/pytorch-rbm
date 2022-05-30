@@ -92,7 +92,7 @@ class RBM:
         # previous samples from Markov chain; used to initialize the Markov chain for PCD
         self.previous_visible_values = None
 
-    def generate_sample(self, visible_values, mixing_time=10):
+    def generate_sample(self, visible_values=None, mixing_time=10):
         """Generate a sample of the visible and hidden units using Gibbs sampling.
 
         Args:
@@ -100,12 +100,15 @@ class RBM:
             Defaults to 10.
 
             visible_values (torch.Tensor): Visible unit values with which to initialize
-            the Markov chain.
+            the Markov chain. If no values are provided, defaults to a random initialization for
+            one Markov chain.
 
         Returns:
             tuple[torch.Tensor, torch.Tensor]: A tuple of tensors of size (visible_units, hidden_units) 
             containing the values of the visible and hidden units.
         """
+        if (visible_values == None):
+            visible_values = torch.randn(self.num_visible, device=self.device)
         hidden_values = None
         for _ in range(mixing_time):
             hidden_values = self.sample_hidden(visible_values)
