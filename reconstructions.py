@@ -23,6 +23,8 @@ rbm.load('models/0_params.pt')
 fig = plt.figure(constrained_layout=True)
 subfigs = fig.subfigures(3, 2)
 
+fig.suptitle('RBM Reconstruction from Original Examples')
+
 for _, subfig in enumerate(subfigs.flat):
     axs = subfig.subplots(1, 2)
     i = randrange(len(test_dataset))
