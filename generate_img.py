@@ -20,7 +20,7 @@ args = parser.parse_args()
 print('Loading model...')
 rbm.load(args.model)
 
-fig = plt.figure(figsize=(8, 8))
+fig = plt.figure()
 columns = 5
 rows = 4
 print('Sampling...')
