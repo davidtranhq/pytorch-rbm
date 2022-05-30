@@ -10,18 +10,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument('model')
 args = parser.parse_args()
 
-fig = plt.figure(figsize=(8,8))
-columns = 10
-rows = 10
-
-rbm = RBM(784, 500, 10)
+rbm = RBM(784, 128, 10)
 rbm.load(args.model)
-
 weights = rbm.weights
+
+fig = plt.figure(figsize=(8,8))
+columns = 5
+rows = 4
+
+
 for i in range(1, rows * columns + 1):
-    j = randrange(501)
+    j = randrange(128)
     img = weights.t()[j].reshape([28, 28]).cpu()
     fig.add_subplot(rows, columns, i)
     plt.axis('off')
     plt.imshow(img, cmap='gray')
+
+fig.suptitle('Weights of Randomly Selected Hidden Units')
 plt.show()

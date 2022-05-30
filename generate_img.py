@@ -21,14 +21,14 @@ print('Loading model...')
 rbm.load(args.model)
 
 fig = plt.figure(figsize=(8, 8))
-columns = 10
-rows = 10
+columns = 5
+rows = 4
 print('Sampling...')
 for i in range(1, columns*rows + 1):
-    img, _ = rbm.generate_sample()
+    img, _ = rbm.generate_sample(None, 100)
     img = img.reshape([28, 28]).cpu()
     fig.add_subplot(rows, columns, i)
     plt.axis('off')
-    fig.suptitle('MNIST Images Generated from RBM')
     plt.imshow(img, cmap='gray')
+fig.suptitle('MNIST Images Generated from a RBM')
 plt.show()
