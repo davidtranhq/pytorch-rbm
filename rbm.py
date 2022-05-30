@@ -182,7 +182,7 @@ class RBM:
 
         # Calculate parameter momenta
         self.weight_momenta *= self.momentum_coefficient
-        self.weight_momenta += self.learning_rate * weight_grads
+        self.weight_momenta += decayed_learning_rate * weight_grads
 
         self.visible_bias_momenta *= self.momentum_coefficient
         self.visible_bias_momenta += decayed_learning_rate * torch.sum(visible_bias_grads, dim=0)
