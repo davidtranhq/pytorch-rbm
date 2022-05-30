@@ -156,7 +156,7 @@ class RBM:
         batch_size = input_data.size(0)
 
         # Calculate the postive phase gradients
-        hidden_values = self.sample_hidden(input_data)
+        hidden_values = self._sample_hidden(input_data)
         weight_grads = torch.matmul(input_data.t(), hidden_values)
         visible_bias_grads = input_data
         hidden_bias_grads = hidden_values
