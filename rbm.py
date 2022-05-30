@@ -1,5 +1,7 @@
 import torch
 
+import matplotlib.pyplot as plt
+
 class RBM:
     """A restricted Boltzmann machine trainable with contrastive divergence, momentum,
     and L2 regularization.
@@ -77,21 +79,12 @@ class RBM:
         num_examples = 0
         for batch, _ in test_loader:
             batch = self._flatten_input_batch(batch)
-            hidden_values = self.sample_hidden(batch)
-            visible_values = self.sample_visible(hidden_values)
+            hidden_values = self._sample_hidden(batch)
+            visible_values = self._sample_visible(hidden_values)
             total_error += torch.sum(torch.abs(visible_values - batch))
             num_examples += batch.size(0)
         return total_error / num_examples
         
-    
-    def reset_parameters(self):
-        self.weights = torch.randn(self.num_visible, self.num_hidden, device=self.device) * 0.1
-        self.visible_biases = torch.ones(self.num_visible, device=self.device) * 0.5
-        self.hidden_biases = torch.ones(self.num_hidden, device=self.device) * 0.5
-
-        # previous samples from Markov chain; used to initialize the Markov chain for PCD
-        self.previous_visible_values = None
-
     def generate_sample(self, visible_values=None, mixing_time=10):
         """Generate a sample of the visible and hidden units using Gibbs sampling.
 
@@ -111,9 +104,17 @@ class RBM:
             visible_values = torch.randn(self.num_visible, device=self.device)
         hidden_values = None
         for _ in range(mixing_time):
-            hidden_values = self.sample_hidden(visible_values)
-            visible_values = self.sample_visible(hidden_values)
+            hidden_values = self._sample_hidden(visible_values)
+            visible_values = self._infer_visible(hidden_values)
         return (visible_values, hidden_values)
+
+    def reset_parameters(self):
+        self.weights = torch.randn(self.num_visible, self.num_hidden, device=self.device) * 0.1
+        self.visible_biases = torch.ones(self.num_visible, device=self.device) * 0.5
+        self.hidden_biases = torch.ones(self.num_hidden, device=self.device) * 0.5
+
+        # previous samples from Markov chain; used to initialize the Markov chain for PCD
+        self.previous_visible_values = None
     
     def save(self, file_path):
         """Save the model's current parameters to file_path.
@@ -199,13 +200,12 @@ class RBM:
         self.weights -= decayed_learning_rate * self.weights * self.weight_decay
 
         # Compute reconstruction error (L1 norm since values are binary)
-        reconstruction = self.sample_visible(self.sample_hidden(input_data))
+        reconstruction = self._sample_visible(self._sample_hidden(input_data))
         error = torch.sum(torch.abs(input_data - reconstruction))
 
         return error
 
-
-    def sample_hidden(self, visible_values):
+    def _sample_hidden(self, visible_values):
         """Generate a sample from the hidden units, conditioned on the visible units.
 
         Args:
@@ -216,13 +216,10 @@ class RBM:
             torch.Tensor: A tensor of size (batch_size, num_hidden), where the i-th row is the
             state of the hidden units for the i-th example.
         """
-        hidden_probabilities = torch.sigmoid(
-            self.hidden_biases 
-            + torch.matmul(visible_values, self.weights)
-        )
+        hidden_probabilities = self._infer_hidden(visible_values)
         return torch.bernoulli(hidden_probabilities)
 
-    def sample_visible(self, hidden_values):
+    def _sample_visible(self, hidden_values):
         """Generate a sample from the visible units, conditioned on the hidden units.
 
         Args:
@@ -233,11 +230,20 @@ class RBM:
             torch.Tensor: A tensor of size (batch_size, num_visible), where the ith row is the
             state of the visible units for the i-th example.
         """
-        visible_probabilities = torch.sigmoid(
+        visible_probabilities = self._infer_visible(hidden_values)
+        return torch.bernoulli(visible_probabilities)
+
+    def _infer_hidden(self, visible_values):
+        return torch.sigmoid(
+            self.hidden_biases 
+            + torch.matmul(visible_values, self.weights)
+        )
+
+    def _infer_visible(self, hidden_values):
+        return torch.sigmoid(
             self.visible_biases
             + torch.matmul(hidden_values, self.weights.t())
         )
-        return torch.bernoulli(visible_probabilities)
 
     def _flatten_input_batch(self, input_batch):
         """Flatten a batch of inputs into a design matrix.
