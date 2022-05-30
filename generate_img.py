@@ -6,7 +6,7 @@ from rbm import RBM
 
 BATCH_SIZE = 64
 VISIBLE_UNITS = 784  # 28 x 28 images
-HIDDEN_UNITS = 128
+HIDDEN_UNITS = 500
 CD_K = 2
 
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
