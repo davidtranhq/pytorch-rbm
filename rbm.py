@@ -54,7 +54,7 @@ class RBM:
             for batch, _ in train_loader:
                 # flatten input data
                 batch = self._flatten_input_batch(batch)
-                total_error += self._contrastive_divergence(batch)
+                total_error += self._contrastive_divergence(batch, epoch, epochs)
                 num_examples += batch.size(0)
             avg_error = total_error / num_examples
             # convert from tensor to single number
@@ -89,7 +89,10 @@ class RBM:
         self.visible_biases = torch.ones(self.num_visible, device=self.device) * 0.5
         self.hidden_biases = torch.ones(self.num_hidden, device=self.device) * 0.5
 
-    def generate_sample(self, mixing_time=10, visible_values=None):
+        # previous samples from Markov chain; used to initialize the Markov chain for PCD
+        self.previous_visible_values = None
+
+    def generate_sample(self, visible_values, mixing_time=10):
         """Generate a sample of the visible and hidden units using Gibbs sampling.
 
         Args:
@@ -103,8 +106,6 @@ class RBM:
             tuple[torch.Tensor, torch.Tensor]: A tuple of tensors of size (visible_units, hidden_units) 
             containing the values of the visible and hidden units.
         """
-        if visible_values == None:
-            visible_values = torch.randn(self.num_visible, device=self.device)
         hidden_values = None
         for _ in range(mixing_time):
             hidden_values = self.sample_hidden(visible_values)
@@ -134,11 +135,15 @@ class RBM:
         self.visible_biases = parameters['visible_biases']
         self.hidden_biases = parameters['hidden_biases']
 
-    def _contrastive_divergence(self, input_data):
+    def _contrastive_divergence(self, input_data, epoch, total_epochs):
         """Perform one CD-k step using the input. Implements momentum and weight decay.
 
         Args:
-            input (torch.Tensor): A design matrix of size (batch_size, num_visible).
+            input_data (torch.Tensor): A design matrix of size (batch_size, num_visible).
+
+            epoch (int): The current training epoch.
+
+            total_epochs (int): The total number of training epochs to be performed.
 
         Returns:
             torch.Tensor: The scalar error, computed as the total squared L2 norm between
@@ -152,8 +157,12 @@ class RBM:
         visible_bias_grads = input_data
         hidden_bias_grads = hidden_values
 
+        if (self.previous_visible_values == None):
+            self.previous_visible_values = torch.randn_like(input_data, device=self.device)
         # Sample from the model for the negative phase
-        visible_values, hidden_values = self.generate_sample(self.gibbs_steps, input_data)
+        visible_values, hidden_values = self.generate_sample(self.previous_visible_values, self.gibbs_steps)
+        # Store samples to initialize the next Markov chain with (PCD)
+        self.previous_visible_values = visible_values
 
         # Calculate the negative phase gradients
         weight_grads -= torch.matmul(visible_values.t(), hidden_values)
@@ -164,6 +173,9 @@ class RBM:
         weight_grads /= batch_size
         visible_bias_grads /= batch_size
         hidden_bias_grads /= batch_size
+
+        # Apply linear learning rate decay
+        decayed_learning_rate = self.learning_rate - (self.learning_rate / total_epochs * epoch)
 
         # Calculate parameter momenta
         self.weight_momenta *= self.momentum_coefficient

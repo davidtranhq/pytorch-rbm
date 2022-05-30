@@ -20,7 +20,7 @@ args = parser.parse_args()
 MODEL_NAME = args.model_name
 
 # Configuration
-BATCH_SIZE = 64
+BATCH_SIZE = 50
 VISIBLE_UNITS = 784 # 28 x 28 images
 HIDDEN_UNITS = args.hidden
 CD_K = args.cdk
@@ -32,7 +32,7 @@ EPOCHS = args.epochs
 DEVICE = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
 hyperparams = f'''
-Using {torch.cuda.get_device_name(DEVICE)}
+Using {"CPU" if not torch.cuda.is_available() else torch.cuda.get_device_name(DEVICE)}
 BATCH_SIZE = {BATCH_SIZE}
 VISIBLE_UNITS = {VISIBLE_UNITS}
 HIDDEN_UNITS = {HIDDEN_UNITS}
