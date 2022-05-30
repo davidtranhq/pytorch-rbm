@@ -185,10 +185,10 @@ class RBM:
         self.weight_momenta += self.learning_rate * weight_grads
 
         self.visible_bias_momenta *= self.momentum_coefficient
-        self.visible_bias_momenta += self.learning_rate * torch.sum(visible_bias_grads, dim=0)
+        self.visible_bias_momenta += decayed_learning_rate * torch.sum(visible_bias_grads, dim=0)
 
         self.hidden_bias_momenta *= self.momentum_coefficient
-        self.hidden_bias_momenta += self.learning_rate * torch.sum(hidden_bias_grads, dim=0)
+        self.hidden_bias_momenta += decayed_learning_rate * torch.sum(hidden_bias_grads, dim=0)
 
         # Update parameters
         self.weights += self.weight_momenta
@@ -196,7 +196,7 @@ class RBM:
         self.hidden_biases += self.hidden_bias_momenta
 
         # Apply weight decay
-        self.weights -= self.weights * self.weight_decay
+        self.weights -= decayed_learning_rate * self.weights * self.weight_decay
 
         # Compute reconstruction error (L1 norm since values are binary)
         reconstruction = self.sample_visible(self.sample_hidden(input_data))
