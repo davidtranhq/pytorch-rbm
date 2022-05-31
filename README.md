@@ -1,15 +1,23 @@
 # Restricted Boltzmann Machines
 
-See the accompanying [post](https://davidtranhq.github.io/2022/05/23/restricted-boltzmann-machines.html) for this model.
+See the accompanying [post](https://davidtranhq.github.io/2022/05/23/generating-images-with-restricted-boltzmann-machines.html) for this model.
 
-A **restricted Boltzmann machine** implemented with PyTorch. Trained with contrastive divergence, momentum, L2 weight decay, and early stopping.
-
+A **restricted Boltzmann machine** implemented with PyTorch. Trained with persistent contrastive divergence, momentum, and L2 weight decay.
 `models/` contains saved model parameters trained on the MNIST and FashionMNIST datasets. The loss and generated examples for each model is pictured below.
 
-![MNIST Loss](results/MNIST_loss.png)
+Images generated from the model:
 
-![MNIST Generation](results/MNIST_generation.png)
+![Generation](results/generation.png)
 
-![FashionMNIST Loss](results/FashionMNIST_loss.png)
+Images reconstructed from the model:
 
-![FashionMNIST Generation](results/FashionMNIST_generation.png)
+![Reconstruction](results/reconstruction.png)
+
+L1 loss of the model
+
+![Loss](results/loss.png)
+
+Visualization of the weights in random hidden units:
+
+![Weights](results/weights.png)
+
