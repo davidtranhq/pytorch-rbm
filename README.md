@@ -3,7 +3,7 @@
 See the accompanying [post](https://davidtranhq.github.io/2022/05/23/generating-images-with-restricted-boltzmann-machines.html) for this model.
 
 A **restricted Boltzmann machine** implemented with PyTorch. Trained with persistent contrastive divergence, momentum, and L2 weight decay.
-`models/` contains saved model parameters trained on the MNIST and FashionMNIST datasets. The loss and generated examples for each model is pictured below.
+`models/` contains the model parameters and the hyperparameters for a model trained on the MNIST dataset. The loss and generated examples for each model is pictured below.
 
 Images generated from the model:
 
